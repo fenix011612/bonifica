@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<title>Bonificação Semestral</title>
+<title>Bonificação de Colaboradores</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
 <style>
@@ -12,7 +12,7 @@ body{
   padding:20px;
 }
 .container{
-  max-width:1000px;
+  max-width:1100px;
   margin:auto;
   background:#fff;
   padding:20px;
@@ -35,6 +35,10 @@ th{
   background:#6a5acd;
   color:#fff;
 }
+input,select{
+  padding:6px;
+  margin:5px;
+}
 .btn{
   padding:6px 10px;
   border:none;
@@ -47,19 +51,16 @@ th{
 .b100{background:#2ecc71}
 .save{background:#6a5acd}
 .delete{background:#e74c3c}
-input,select{
-  padding:6px;
-  margin:5px;
-}
 </style>
 </head>
 
 <body>
 <div class="container">
 
-<h2>Avaliação de Bonificação</h2>
+<h2>Avaliação de Desempenho – Bonificação</h2>
 
 <input id="nome" placeholder="Nome do colaborador">
+<input id="salario" type="number" placeholder="Média salarial (R$)">
 <select id="semestre">
   <option>Janeiro a Junho</option>
   <option>Julho a Dezembro</option>
@@ -67,7 +68,10 @@ input,select{
 
 <table>
 <thead>
-<tr><th>Critério</th><th>Pontuação</th></tr>
+<tr>
+<th>Critério</th>
+<th>Pontuação</th>
+</tr>
 </thead>
 <tbody id="criterios"></tbody>
 </table>
@@ -79,6 +83,7 @@ input,select{
 <hr>
 
 <h2>🏆 Ranking</h2>
+
 <table>
 <thead>
 <tr>
@@ -87,6 +92,7 @@ input,select{
 <th>Semestre</th>
 <th>Média</th>
 <th>Bônus</th>
+<th>Valor (R$)</th>
 <th>Ações</th>
 </tr>
 </thead>
@@ -106,7 +112,7 @@ import {
   doc
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-/* 🔥 SEU FIREBASE */
+/* 🔥 FIREBASE */
 const firebaseConfig = {
   apiKey: "AIzaSyCsuGHuKu99EONQY8HLAnYkFSKIpsg-5qk",
   authDomain: "bonifica-45f34.firebaseapp.com",
@@ -120,7 +126,7 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 /* CRITÉRIOS */
-const criteriosLista = [
+const criterios = [
  "Meta Financeira",
  "Meta Qualidade",
  "Meta Planejamento",
@@ -129,14 +135,14 @@ const criteriosLista = [
  "Produtividade",
  "Trabalho em Equipe",
  "Criatividade",
- "Alinhamento e Valores",
+ "Alinhamento, Cultura e Valores",
  "Assiduidade e Pontualidade"
 ];
 
-let pontos = Array(criteriosLista.length).fill(0);
+let pontos = Array(criterios.length).fill(0);
 const tbody = document.getElementById("criterios");
 
-criteriosLista.forEach((c,i)=>{
+criterios.forEach((c,i)=>{
   tbody.innerHTML += `
   <tr>
     <td>${c}</td>
@@ -150,54 +156,73 @@ criteriosLista.forEach((c,i)=>{
 });
 
 window.pontuar = (i,v)=>{
-  pontos[i]=v;
-  document.getElementById("p"+i).innerText = v+"%";
-}
+  pontos[i] = v;
+  document.getElementById("p"+i).innerText = v + "%";
+};
 
-/* SALVAR */
+/* SALVAR AVALIAÇÃO */
 window.salvar = async ()=>{
   const nome = document.getElementById("nome").value.trim();
   const semestre = document.getElementById("semestre").value;
-  if(!nome) return alert("Informe o nome");
+  const salario = parseFloat(document.getElementById("salario").value);
 
-  const media = pontos.reduce((a,b)=>a+b,0)/pontos.length;
+  if(!nome || !salario){
+    alert("Preencha nome e média salarial");
+    return;
+  }
 
-  let bonus = "R$ 0";
-  if(media >= 100) bonus = "½ salário";
-  else if(media >= 75) bonus = "⅓ salário";
-  else if(media >= 50) bonus = "¼ salário";
+  const media = pontos.reduce((a,b)=>a+b,0) / pontos.length;
+
+  let bonusTexto = "Sem bônus";
+  let bonusValor = 0;
+
+  if(media >= 100){
+    bonusTexto = "½ salário";
+    bonusValor = salario * 0.5;
+  }else if(media >= 75){
+    bonusTexto = "⅓ salário";
+    bonusValor = salario * 0.33;
+  }else if(media >= 50){
+    bonusTexto = "¼ salário";
+    bonusValor = salario * 0.25;
+  }
 
   await addDoc(collection(db,"avaliacoes"),{
     nome,
     semestre,
+    salario,
     media,
-    bonus,
+    bonusTexto,
+    bonusValor,
     criadoEm: new Date()
   });
 
   carregarRanking();
-}
+};
 
 /* RANKING */
 async function carregarRanking(){
   const snap = await getDocs(collection(db,"avaliacoes"));
-  const dados=[];
+  const dados = [];
   snap.forEach(d=>dados.push({id:d.id,...d.data()}));
 
-  dados.sort((a,b)=>b.media-a.media);
+  dados.sort((a,b)=>b.media - a.media);
 
   const rank = document.getElementById("ranking");
-  rank.innerHTML="";
+  rank.innerHTML = "";
 
   dados.forEach((d,i)=>{
-    rank.innerHTML+=`
+    rank.innerHTML += `
     <tr>
       <td>${i+1}</td>
       <td>${d.nome}</td>
       <td>${d.semestre}</td>
       <td>${d.media.toFixed(1)}%</td>
-      <td>${d.bonus}</td>
-      <td><button class="btn delete" onclick="excluir('${d.id}')">Excluir</button></td>
+      <td>${d.bonusTexto}</td>
+      <td>R$ ${d.bonusValor.toFixed(2)}</td>
+      <td>
+        <button class="btn delete" onclick="excluir('${d.id}')">Excluir</button>
+      </td>
     </tr>`;
   });
 }
@@ -205,7 +230,7 @@ async function carregarRanking(){
 window.excluir = async (id)=>{
   await deleteDoc(doc(db,"avaliacoes",id));
   carregarRanking();
-}
+};
 
 window.apagarTudo = async ()=>{
   const snap = await getDocs(collection(db,"avaliacoes"));
@@ -213,7 +238,7 @@ window.apagarTudo = async ()=>{
     await deleteDoc(doc(db,"avaliacoes",d.id));
   });
   carregarRanking();
-}
+};
 
 carregarRanking();
 </script>
