@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Bonificação Semestral</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style>
+body{
+    font-family:Arial, sans-serif;
+    background:#f4f4fb;
+    padding:20px;
+}
+.container{
+    max-width:1100px;
+    margin:auto;
+    background:#fff;
+    padding:20px;
+    border-radius:10px;
+    box-shadow:0 4px 10px rgba(0,0,0,.1);
+}
+h1,h2{text-align:center}
+table{
+    width:100%;
+    border-collapse:collapse;
+    margin-top:15px;
+}
+th,td{
+    border:1px solid #ddd;
+    padding:8px;
+}
+th{
+    background:#6a5acd;
+    color:#fff;
+}
+.btn-score{
+    padding:6px 10px;
+    margin:2px;
+    border:none;
+    border-radius:6px;
+    cursor:pointer;
+    color:#fff;
+}
+.s50{background:#e74c3c}
+.s75{background:#f1c40f;color:#000}
+.s100{background:#2ecc71}
+
+button{
+    margin-top:15px;
+    padding:10px;
+    border:none;
+    background:#6a5acd;
+    color:#fff;
+    border-radius:8px;
+    cursor:pointer;
+}
+.actions button{
+    margin:2px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+<h1>Bonificação de Colaboradores</h1>
+
+<input id="nome" placeholder="Nome do colaborador" style="width:100%">
+<input id="salario" type="number" placeholder="Salário" style="width:100%; margin-top:8px">
+
+<select id="semestre" style="width:100%; margin-top:8px">
+    <option value="Jan-Jun">Janeiro a Junho</option>
+    <option value="Jul-Dez">Julho a Dezembro</option>
+</select>
+
+<h2>Avaliação</h2>
+<table>
+<tr><th>Critério</th><th>Pontuação</th></tr>
+<tbody id="criterios"></tbody>
+</table>
+
+<button onclick="salvar()">Salvar Avaliação</button>
+<button onclick="limparTudo()" style="background:#e74c3c">Apagar Histórico</button>
+
+<h2>🏆 Ranking</h2>
+<table>
+<tr>
+    <th>Pos</th>
+    <th>Nome</th>
+    <th>Semestre</th>
+    <th>Média</th>
+    <th>Bônus</th>
+    <th>Ações</th>
+</tr>
+<tbody id="ranking"></tbody>
+</table>
+</div>
+
+<!-- Firebase -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+import { 
+    getFirestore, collection, addDoc, getDocs, deleteDoc, doc 
+} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCsuGHuKu99EONQY8HLAnYkFSKIpsg-5qk",
+  authDomain: "bonifica-45f34.firebaseapp.com",
+  projectId: "bonifica-45f34",
+  storageBucket: "bonifica-45f34.firebasestorage.app",
+  messagingSenderId: "504662283087",
+  appId: "1:504662283087:web:9027f63fc7e3603735ab3a"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+const criterios = [
+"Meta Financeira","Meta Qualidade","Meta Planejamento","Meta Produtividade",
+"Qualidade do Trabalho","Produtividade","Trabalho em Equipe",
+"Criatividade","Alinhamento e Valores","Assiduidade e Pontualidade"
+];
+
+let notas = new Array(10).fill(0);
+
+function carregarCriterios(){
+    const tb = document.getElementById("criterios");
+    tb.innerHTML="";
+    criterios.forEach((c,i)=>{
+        tb.innerHTML+=`
+        <tr>
+            <td>${c}</td>
+            <td>
+                <button class="btn-score s50" onclick="setNota(${i},50)">50%</button>
+                <button class="btn-score s75" onclick="setNota(${i},75)">75%</button>
+                <button class="btn-score s100" onclick="setNota(${i},100)">100%</button>
+                <strong id="n${i}"></strong>
+            </td>
+        </tr>`;
+    });
+}
+window.setNota = (i,v)=>{
+    notas[i]=v;
+    document.getElementById("n"+i).innerText=" "+v+"%";
+}
+
+carregarCriterios();
+
+window.salvar = async ()=>{
+    if(notas.includes(0)) return alert("Preencha todas as notas");
+
+    const nome = document.getElementById("nome").value;
+    const salario = parseFloat(document.getElementById("salario").value);
+    const semestre = document.getElementById("semestre").value;
+
+    const media = notas.reduce((a,b)=>a+b)/10;
+    let bonus=0;
+
+    if(media>=50 && media<55) bonus=salario/4;
+    else if(media>=55 && media<=75) bonus=salario/3;
+    else if(media===100) bonus=salario/2;
+
+    await addDoc(collection(db,"bonificacoes"),{
+        nome, semestre, media, bonus
+    });
+
+    notas.fill(0);
+    carregarCriterios();
+    carregarRanking();
+}
+
+window.carregarRanking = async ()=>{
+    const tb=document.getElementById("ranking");
+    tb.innerHTML="";
+    const query = await getDocs(collection(db,"bonificacoes"));
+    let dados=[];
+    query.forEach(docu=>dados.push({id:docu.id,...docu.data()}));
+    dados.sort((a,b)=>b.media-a.media);
+
+    dados.forEach((d,i)=>{
+        tb.innerHTML+=`
+        <tr>
+            <td>${i+1}</td>
+            <td>${d.nome}</td>
+            <td>${d.semestre}</td>
+            <td>${d.media.toFixed(2)}%</td>
+            <td>R$ ${d.bonus.toFixed(2)}</td>
+            <td class="actions">
+                <button onclick="excluir('${d.id}')">🗑️</button>
+            </td>
+        </tr>`;
+    });
+}
+
+window.excluir = async (id)=>{
+    await deleteDoc(doc(db,"bonificacoes",id));
+    carregarRanking();
+}
+
+window.limparTudo = async ()=>{
+    if(!confirm("Apagar todo o histórico?")) return;
+    const query = await getDocs(collection(db,"bonificacoes"));
+    query.forEach(async d=> await deleteDoc(doc(db,"bonificacoes",d.id)));
+    carregarRanking();
+}
+
+carregarRanking();
+</script>
+
+</body>
+</html>
