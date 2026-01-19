@@ -7,105 +7,106 @@
 
 <style>
 body{
-    font-family:Arial, sans-serif;
-    background:#f4f4fb;
-    padding:20px;
+  font-family: Arial, sans-serif;
+  background:#f4f6ff;
+  padding:20px;
 }
 .container{
-    max-width:1100px;
-    margin:auto;
-    background:#fff;
-    padding:20px;
-    border-radius:12px;
-    box-shadow:0 4px 10px rgba(0,0,0,.1);
+  max-width:1000px;
+  margin:auto;
+  background:#fff;
+  padding:20px;
+  border-radius:10px;
 }
-h1,h2{text-align:center}
+h2{
+  color:#6a5acd;
+}
 table{
-    width:100%;
-    border-collapse:collapse;
-    margin-top:15px;
+  width:100%;
+  border-collapse:collapse;
+  margin-top:15px;
 }
 th,td{
-    border:1px solid #ddd;
-    padding:8px;
+  border:1px solid #ddd;
+  padding:8px;
+  text-align:center;
 }
 th{
-    background:#6a5acd;
-    color:#fff;
+  background:#6a5acd;
+  color:#fff;
 }
-input, select{
-    width:100%;
-    padding:8px;
-    margin:5px 0;
+.btn{
+  padding:6px 10px;
+  border:none;
+  border-radius:6px;
+  cursor:pointer;
+  color:#fff;
 }
-.btn-score{
-    padding:6px 10px;
-    margin:2px;
-    border:none;
-    border-radius:6px;
-    cursor:pointer;
-    color:#fff;
+.b50{background:#e74c3c}
+.b75{background:#f1c40f;color:#000}
+.b100{background:#2ecc71}
+.save{background:#6a5acd}
+.delete{background:#e74c3c}
+input,select{
+  padding:6px;
+  margin:5px;
 }
-.s50{background:#e74c3c}
-.s75{background:#f1c40f;color:#000}
-.s100{background:#2ecc71}
-button{
-    margin-top:15px;
-    padding:10px;
-    border:none;
-    background:#6a5acd;
-    color:#fff;
-    border-radius:8px;
-    cursor:pointer;
-}
-.deleteAll{background:#e74c3c}
 </style>
 </head>
 
 <body>
-
 <div class="container">
-<h1>Bonificação Semestral de Colaboradores</h1>
+
+<h2>Avaliação de Bonificação</h2>
 
 <input id="nome" placeholder="Nome do colaborador">
-<input id="salario" type="number" placeholder="Salário">
-
 <select id="semestre">
-    <option value="Jan-Jun">Janeiro a Junho</option>
-    <option value="Jul-Dez">Julho a Dezembro</option>
+  <option>Janeiro a Junho</option>
+  <option>Julho a Dezembro</option>
 </select>
 
-<h2>Avaliação por Critério</h2>
-
 <table>
+<thead>
 <tr><th>Critério</th><th>Pontuação</th></tr>
+</thead>
 <tbody id="criterios"></tbody>
 </table>
 
-<button onclick="salvar()">Salvar Avaliação</button>
-<button class="deleteAll" onclick="limparTudo()">Apagar Histórico</button>
+<br>
+<button class="btn save" onclick="salvar()">Salvar Avaliação</button>
+<button class="btn delete" onclick="apagarTudo()">Apagar Histórico</button>
+
+<hr>
 
 <h2>🏆 Ranking</h2>
 <table>
+<thead>
 <tr>
-    <th>Pos</th>
-    <th>Nome</th>
-    <th>Semestre</th>
-    <th>Média</th>
-    <th>Bônus</th>
-    <th>Ações</th>
+<th>Pos</th>
+<th>Nome</th>
+<th>Semestre</th>
+<th>Média</th>
+<th>Bônus</th>
+<th>Ações</th>
 </tr>
+</thead>
 <tbody id="ranking"></tbody>
 </table>
+
 </div>
 
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import {
-  getFirestore, collection, addDoc, getDocs, deleteDoc, doc
-} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+  getFirestore,
+  collection,
+  addDoc,
+  getDocs,
+  deleteDoc,
+  doc
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-/* 🔥 FIREBASE CONFIG */
+/* 🔥 SEU FIREBASE */
 const firebaseConfig = {
   apiKey: "AIzaSyCsuGHuKu99EONQY8HLAnYkFSKIpsg-5qk",
   authDomain: "bonifica-45f34.firebaseapp.com",
@@ -118,106 +119,101 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-/* 📌 CRITÉRIOS */
-const criterios = [
- "Meta Financeira","Meta Qualidade","Meta Planejamento","Meta Produtividade",
- "Qualidade do Trabalho","Produtividade","Trabalho em Equipe",
- "Criatividade","Alinhamento e Valores","Assiduidade e Pontualidade"
+/* CRITÉRIOS */
+const criteriosLista = [
+ "Meta Financeira",
+ "Meta Qualidade",
+ "Meta Planejamento",
+ "Meta Produtividade",
+ "Qualidade do Trabalho",
+ "Produtividade",
+ "Trabalho em Equipe",
+ "Criatividade",
+ "Alinhamento e Valores",
+ "Assiduidade e Pontualidade"
 ];
 
-let notas = new Array(10).fill(0);
+let pontos = Array(criteriosLista.length).fill(0);
+const tbody = document.getElementById("criterios");
 
-/* 🔘 CLIQUE DE NOTA */
-window.setNota = (i,v)=>{
-    notas[i] = v;
-    document.getElementById("n"+i).innerText = " " + v + "%";
-};
+criteriosLista.forEach((c,i)=>{
+  tbody.innerHTML += `
+  <tr>
+    <td>${c}</td>
+    <td>
+      <button class="btn b50" onclick="pontuar(${i},50)">50%</button>
+      <button class="btn b75" onclick="pontuar(${i},75)">75%</button>
+      <button class="btn b100" onclick="pontuar(${i},100)">100%</button>
+      <strong id="p${i}">0%</strong>
+    </td>
+  </tr>`;
+});
 
-/* 🧮 GERAR TABELA */
-function carregarCriterios(){
-    const tb = document.getElementById("criterios");
-    tb.innerHTML = "";
-    criterios.forEach((c,i)=>{
-        tb.innerHTML += `
-        <tr>
-            <td>${c}</td>
-            <td>
-                <button class="btn-score s50" onclick="setNota(${i},50)">50%</button>
-                <button class="btn-score s75" onclick="setNota(${i},75)">75%</button>
-                <button class="btn-score s100" onclick="setNota(${i},100)">100%</button>
-                <strong id="n${i}"></strong>
-            </td>
-        </tr>`;
-    });
+window.pontuar = (i,v)=>{
+  pontos[i]=v;
+  document.getElementById("p"+i).innerText = v+"%";
 }
-carregarCriterios();
 
-/* 💾 SALVAR */
+/* SALVAR */
 window.salvar = async ()=>{
-    const nome = document.getElementById("nome").value.trim();
-    const salario = parseFloat(document.getElementById("salario").value);
-    const semestre = document.getElementById("semestre").value;
+  const nome = document.getElementById("nome").value.trim();
+  const semestre = document.getElementById("semestre").value;
+  if(!nome) return alert("Informe o nome");
 
-    if(!nome || !salario || notas.includes(0)){
-        alert("Preencha todos os campos e notas");
-        return;
-    }
+  const media = pontos.reduce((a,b)=>a+b,0)/pontos.length;
 
-    const media = notas.reduce((a,b)=>a+b)/10;
-    let bonus = 0;
+  let bonus = "R$ 0";
+  if(media >= 100) bonus = "½ salário";
+  else if(media >= 75) bonus = "⅓ salário";
+  else if(media >= 50) bonus = "¼ salário";
 
-    if(media>=50 && media<55) bonus = salario/4;
-    else if(media>=55 && media<=75) bonus = salario/3;
-    else if(media===100) bonus = salario/2;
+  await addDoc(collection(db,"avaliacoes"),{
+    nome,
+    semestre,
+    media,
+    bonus,
+    criadoEm: new Date()
+  });
 
-    await addDoc(collection(db,"bonificacoes"),{
-        nome, semestre, media, bonus
-    });
+  carregarRanking();
+}
 
-    notas.fill(0);
-    carregarCriterios();
-    carregarRanking();
-};
+/* RANKING */
+async function carregarRanking(){
+  const snap = await getDocs(collection(db,"avaliacoes"));
+  const dados=[];
+  snap.forEach(d=>dados.push({id:d.id,...d.data()}));
 
-/* 🏆 RANKING */
-window.carregarRanking = async ()=>{
-    const tb = document.getElementById("ranking");
-    tb.innerHTML = "";
+  dados.sort((a,b)=>b.media-a.media);
 
-    const snap = await getDocs(collection(db,"bonificacoes"));
-    let dados = [];
+  const rank = document.getElementById("ranking");
+  rank.innerHTML="";
 
-    snap.forEach(d => dados.push({id:d.id, ...d.data()}));
-    dados.sort((a,b)=>b.media - a.media);
+  dados.forEach((d,i)=>{
+    rank.innerHTML+=`
+    <tr>
+      <td>${i+1}</td>
+      <td>${d.nome}</td>
+      <td>${d.semestre}</td>
+      <td>${d.media.toFixed(1)}%</td>
+      <td>${d.bonus}</td>
+      <td><button class="btn delete" onclick="excluir('${d.id}')">Excluir</button></td>
+    </tr>`;
+  });
+}
 
-    dados.forEach((d,i)=>{
-        tb.innerHTML += `
-        <tr>
-            <td>${i+1}</td>
-            <td>${d.nome}</td>
-            <td>${d.semestre}</td>
-            <td>${d.media.toFixed(2)}%</td>
-            <td>R$ ${d.bonus.toFixed(2)}</td>
-            <td><button onclick="excluir('${d.id}')">🗑️</button></td>
-        </tr>`;
-    });
-};
-
-/* 🗑️ EXCLUIR */
 window.excluir = async (id)=>{
-    await deleteDoc(doc(db,"bonificacoes",id));
-    carregarRanking();
-};
+  await deleteDoc(doc(db,"avaliacoes",id));
+  carregarRanking();
+}
 
-/* ❌ LIMPAR */
-window.limparTudo = async ()=>{
-    if(!confirm("Deseja apagar todo o histórico?")) return;
-    const snap = await getDocs(collection(db,"bonificacoes"));
-    snap.forEach(async d=>{
-        await deleteDoc(doc(db,"bonificacoes",d.id));
-    });
-    carregarRanking();
-};
+window.apagarTudo = async ()=>{
+  const snap = await getDocs(collection(db,"avaliacoes"));
+  snap.forEach(async d=>{
+    await deleteDoc(doc(db,"avaliacoes",d.id));
+  });
+  carregarRanking();
+}
 
 carregarRanking();
 </script>
